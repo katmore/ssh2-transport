@@ -1,0 +1,36 @@
+{
+    "name": "katmore/ssh2-transport",
+    "description": "php ssh2 wrapper lib",
+    "homepage":"https://github.com/katmore/ssh2-transport",
+    "type": "project",
+    "license": [
+       "MIT",
+       "GPL-3.0+"
+    ],
+    "authors": [
+        {
+            "name": "Doug Bird",
+            "email": "retran@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": { 
+            "Ssh2transport\\": "src"
+         }
+    },
+    "require": {
+        "php" : ">=7.2.1"
+    },
+    "autoload-dev": {
+        "psr-4": { 
+            "Ssh2transport\\TestCase\\": "tests/phpunit/TestCase", 
+            "Ssh2transport\\Tests\\": "tests/phpunit/Tests"
+         }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7",
+        "phpunit/php-code-coverage": "^6.0",
+        "php-di/phpdoc-reader": "^2.1",
+        "guzzlehttp/guzzle": "~6.0"
+    }
+}
