@@ -1,20 +1,45 @@
 <?php
-namespace Aploffice;
+namespace Ssh2Transport;
 
-class Ssh2Connection {
+class Connection {
+
+   /**
+    *
+    * @var callable
+    * @private
+    */
+   private $disconnectCallback;
+   /**
+    *
+    * @var int
+    * @private
+    */
+   private $disconnectReason;
+   /**
+    *
+    * @var string
+    * @private
+    */
+   private $disconnectMessage;
+   /**
+    *
+    * @var resource ssh2 connection link identifier
+    * @private
+    */
+   private $session;
 
    /**
     * Connect to an SSH server
     *
-    * @param
-    *           string $host <p>
+    * @param string $host
+    *           <p>
     *           </p>
     *           
-    * @param
-    *           int $port [optional] <p>
+    * @param int $port
+    *           [optional] <p>
     *           </p>
-    * @param
-    *           array $methods [optional] <p>
+    * @param array $methods
+    *           [optional] <p>
     *           methods may be an associative array with up to four parameters
     *           as described below.
     *           </p>
@@ -134,49 +159,106 @@ class Ssh2Connection {
     *           
     * @link http://www.php.net/manual/en/function.ssh2-connect.php
     *      
-    * @throws \Ssh2Transport\Exception\Ssh2ConnectionErrorException
+    * @throws \Ssh2Transport\Exception\ConnectionConnectErrorException
     */
-   public function __construct(string $host, int $port, array $methods = null) {
+   final public function __construct(string $host, int $port = 22, array $methods = null) {
       $error = [];
-      $error_handler = set_error_handler(function ($errno, string $errstr, $errfile, $errline) use(&$error) {
-         $error []=$errstr;
+      $error_handler = set_error_handler(function ($errno, string $errstr, $errfile, $errline) use (&$error) {
+         $error[] = $errstr;
       });
       $error_reporting = error_reporting(error_reporting() & E_WARNING & E_NOTICE);
-      $handle = ssh2_connect($host, $port, $methods);
+      $this->session = ssh2_connect($host, $port, $methods,
+         [
+            'disconnect' => function ($reason, $message, $language) {
+               $this->disconnectMessage = $message;
+               $this->disconnectReason = $reason;
+               if (is_callable($this->disconnectCallback)) {
+                  $this->disconnectCallback($reason, $message, $language);
+               }
+            }
+         ]);
       error_reporting($error_reporting);
       set_error_handler($error_handler);
-      if (false===$handle) {
-         throw new Exception\Ssh2Transport(implode("; ",$error));
+      if (false === $this->session) {
+         throw new Exception\ConnectionConnectErrorException(
+            implode("; ", $error));
       }
-      
    }
 
 
+   /**
+    *
+    * @return resource ssh2 connection link identifier
+    * @throws \Ssh2Transport\Exception\ConnectionIsDisconnectedException
+    * @private
+    */
+   protected function getSession() {
+      if ($this->disconnectReason !== null) {
+         throw new Exception\ConnectionIsDisconnectedException(
+            $this->disconnectMessage,
+            $this->disconnectReason);
+      }
+   }
 
+   /**
+    *
+    * @param callable $callback
+    *           invoked when <b>SSH2_MSG_DISCONNECT</b> packet is received
+    */
+   public function setDisconnectCallback(callable $callback): void {
+      $this->disconnectCallback = $callback;
+   }
+   /**
+    *
+    * @param int $flags
+    *           [optional] <p>
+    *           flags may be either of
+    *           SSH2_FINGERPRINT_MD5 or
+    *           SSH2_FINGERPRINT_SHA1 logically ORed with
+    *           SSH2_FINGERPRINT_HEX or
+    *           SSH2_FINGERPRINT_RAW.
+    *           </p>
+    * @return string the hostkey hash as a string.
+    * @throws \Ssh2Transport\Exception\ConnectionFingerprintErrorException
+    */
+   public function getFingerprint(int $flags = null): string {
+      $error = [];
+      $error_handler = set_error_handler(function ($errno, string $errstr, $errfile, $errline) use (&$error) {
+         $error[] = $errstr;
+      });
+      $error_reporting = error_reporting(error_reporting() & E_WARNING & E_NOTICE);
+      $fingerprint = ssh2_fingerprint($this->getSession());
+      error_reporting($error_reporting);
+      set_error_handler($error_handler);
+      if (false === $fingerprint) {
+         throw new Exception\ConnectionFingerprintErrorException(
+            implode("; ", $error));
+      }
+      return $fingerprint;
+   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   /**
+    * Verify fingerprint of remote server against a known host.
+    *
+    * @param string $known_host
+    *           expected fingerprint of the known host
+    * @param int $flags
+    *           [optional] <p>
+    *           flags may be either of
+    *           SSH2_FINGERPRINT_MD5 or
+    *           SSH2_FINGERPRINT_SHA1 logically ORed with
+    *           SSH2_FINGERPRINT_HEX or
+    *           SSH2_FINGERPRINT_RAW.
+    *           </p>
+    * @return \Ssh2Transport\VerifiedConnection verified connection object
+    * @throws \Ssh2Transport\Exception\ConnectionFingerprintErrorException
+    * @throws \Ssh2Transport\Exception\ConnectionFingerprintNotMatchException
+    */
+   public function verify(string $known_host, int $flags = null): VerifiedConnection {
+      if ($known_host !== ($fingerprint = $this->getFingerprint($flags))) {
+         throw new Exception\ConnectionFingerprintNotMatchException(
+            $known_host,
+            $fingerprint);
+      }
+   }
 }

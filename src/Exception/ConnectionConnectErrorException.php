@@ -3,9 +3,8 @@ namespace Ssh2Transport\Exception;
 
 use RuntimeException;
 
-class Ssh2ConnectionErrorException extends RuntimeException
-implements Ssh2ExceptionInterface
-{
+class ConnectionConnectErrorException extends RuntimeException implements 
+   ConnectionExceptionInterface {
    public function __construct(string $error) {
       parent::__construct($error);
    }
