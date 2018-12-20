@@ -4,7 +4,7 @@ php ssh2 wrapper lib
 ## Usage
 This lib is designed to force safe and sane ssh connection use. 
 
-You cannot play with your ssh2 connection resource until have successfully    
+The ssh2 connection resource cannot be accessed until it has been successfully verified and authenticated (in THAT order).
 
 
 ```php
